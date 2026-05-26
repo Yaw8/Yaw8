@@ -12,6 +12,31 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name; 
+    // Category name.
+    //
+    // Examples:
+    // - Insurance
+    // - Utilities
+    // - Plumbing
+    private String name;
+    
+        // Category type.
+    //
+    // Examples:
+    // - bill
+    // - repair
     private String type;
+
+
+     // The user who owns this category.
+    //
+    // Many categories can belong to one user.
+    //
+    // Example:
+    // User -> many categories
+    @ManyToOne
+    // Foreign key column in PostgreSQL.
+    @JoinColumn(name = "user_id")
+    private User user;
+
 }

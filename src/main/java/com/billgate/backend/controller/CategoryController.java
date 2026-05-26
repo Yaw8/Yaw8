@@ -1,11 +1,16 @@
 package com.billgate.backend.controller;
 
 // Imports Category entity.
-// Represents one category row from PostgreSQL.
 import com.billgate.backend.entity.Category;
 
-// Repository used to communicate with PostgreSQL.
+// Imports User entity.
+import com.billgate.backend.entity.User;
+
+// Repository used for category database operations.
 import com.billgate.backend.repository.CategoryRepository;
+
+// Repository used to find users by id.
+import com.billgate.backend.repository.UserRepository;
 
 // Spring REST API annotations.
 import org.springframework.web.bind.annotation.*;
@@ -14,42 +19,50 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-
-// Base API route for categories.
-//
-// Example:
-// /api/categories
 @RequestMapping("/api/categories")
 public class CategoryController {
 
-    // Repository handles database operations.
     private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
 
     // Constructor injection.
-    //
-    // Spring automatically provides CategoryRepository.
     public CategoryController(
-            CategoryRepository categoryRepository
+            CategoryRepository categoryRepository,
+            UserRepository userRepository
     ) {
         this.categoryRepository = categoryRepository;
+        this.userRepository = userRepository;
     }
 
-    // GET /api/categories
+    // GET /api/categories?userId=1
     //
-    // Returns all categories from PostgreSQL.
+    // Returns ONLY categories that belong to one user.
     @GetMapping
-    public List<Category> getAllCategories() {
+    public List<Category> getCategoriesByUser(
+            @RequestParam Long userId
+    ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
 
-        return categoryRepository.findAll();
+        return categoryRepository.findByUser(user);
     }
 
-    // POST /api/categories
+    // POST /api/categories?userId=1
     //
-    // Creates a new category in PostgreSQL.
+    // Creates category for a specific user.
     @PostMapping
     public Category createCategory(
+            @RequestParam Long userId,
             @RequestBody Category category
     ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
+
+        category.setUser(user);
 
         return categoryRepository.save(category);
     }
@@ -62,30 +75,15 @@ public class CategoryController {
             @PathVariable Long id,
             @RequestBody Category updatedCategory
     ) {
-
         return categoryRepository.findById(id)
-
                 .map(existingCategory -> {
+                    existingCategory.setName(updatedCategory.getName());
+                    existingCategory.setType(updatedCategory.getType());
 
-                    // Update category fields.
-                    existingCategory.setName(
-                            updatedCategory.getName()
-                    );
-
-                    existingCategory.setType(
-                            updatedCategory.getType()
-                    );
-
-                    // Save updated category.
-                    return categoryRepository.save(
-                            existingCategory
-                    );
+                    return categoryRepository.save(existingCategory);
                 })
-
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Category not found"
-                        )
+                        new RuntimeException("Category not found")
                 );
     }
 
@@ -96,7 +94,6 @@ public class CategoryController {
     public void deleteCategory(
             @PathVariable Long id
     ) {
-
         categoryRepository.deleteById(id);
     }
 }

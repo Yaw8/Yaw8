@@ -1,18 +1,21 @@
 package com.billgate.backend.repository;
 
-// Imports the Repair entity
+// Imports Repair entity.
 import com.billgate.backend.entity.Repair;
 
-// Gives built-in database operations
+// Imports User entity.
+import com.billgate.backend.entity.User;
+
+// Spring Data JPA repository.
 import org.springframework.data.jpa.repository.JpaRepository;
 
-/*
-JpaRepository automatically provides:
-- save()
-- findAll()
-- deleteById()
-- findById()
-*/
-public interface RepairRepository extends JpaRepository<Repair, Long> {
+// Java List collection.
+import java.util.List;
 
+// Repository for repairs table.
+public interface RepairRepository
+        extends JpaRepository<Repair, Long> {
+
+    // Finds all repairs belonging to one user.
+    List<Repair> findByUser(User user);
 }

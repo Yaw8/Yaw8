@@ -1,11 +1,16 @@
 package com.billgate.backend.controller;
 
 // Imports Repair entity.
-// Represents one repair row from PostgreSQL.
 import com.billgate.backend.entity.Repair;
 
-// Repository used to communicate with PostgreSQL.
+// Imports User entity.
+import com.billgate.backend.entity.User;
+
+// Repository used for repair database operations.
 import com.billgate.backend.repository.RepairRepository;
+
+// Repository used to find users by id.
+import com.billgate.backend.repository.UserRepository;
 
 // Spring REST API annotations.
 import org.springframework.web.bind.annotation.*;
@@ -14,42 +19,50 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-
-// Base API route for repairs.
-//
-// Example:
-// /api/repairs
 @RequestMapping("/api/repairs")
 public class RepairController {
 
-    // Repository handles database operations.
     private final RepairRepository repairRepository;
+    private final UserRepository userRepository;
 
     // Constructor injection.
-    //
-    // Spring automatically provides RepairRepository.
     public RepairController(
-            RepairRepository repairRepository
+            RepairRepository repairRepository,
+            UserRepository userRepository
     ) {
         this.repairRepository = repairRepository;
+        this.userRepository = userRepository;
     }
 
-    // GET /api/repairs
+    // GET /api/repairs?userId=1
     //
-    // Returns all repairs from PostgreSQL.
+    // Returns ONLY repairs belonging to one user.
     @GetMapping
-    public List<Repair> getAllRepairs() {
+    public List<Repair> getRepairsByUser(
+            @RequestParam Long userId
+    ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
 
-        return repairRepository.findAll();
+        return repairRepository.findByUser(user);
     }
 
-    // POST /api/repairs
+    // POST /api/repairs?userId=1
     //
-    // Creates a new repair in PostgreSQL.
+    // Creates a new repair for a specific user.
     @PostMapping
     public Repair createRepair(
+            @RequestParam Long userId,
             @RequestBody Repair repair
     ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
+
+        repair.setUser(user);
 
         return repairRepository.save(repair);
     }
@@ -62,49 +75,18 @@ public class RepairController {
             @PathVariable Long id,
             @RequestBody Repair updatedRepair
     ) {
-
         return repairRepository.findById(id)
-
                 .map(existingRepair -> {
+                    existingRepair.setTitle(updatedRepair.getTitle());
+                    existingRepair.setCost(updatedRepair.getCost());
+                    existingRepair.setStatus(updatedRepair.getStatus());
+                    existingRepair.setRepairDate(updatedRepair.getRepairDate());
+                    existingRepair.setCategory(updatedRepair.getCategory());
 
- // Update repair fields.
-existingRepair.setTitle(
-        updatedRepair.getTitle()
-);
-
-existingRepair.setCost(
-        updatedRepair.getCost()
-);
-
-existingRepair.setStatus(
-        updatedRepair.getStatus()
-);
-
-existingRepair.setRepairDate(
-        updatedRepair.getRepairDate()
-);
-
-existingRepair.setCategory(
-        updatedRepair.getCategory()
-);
-
-existingRepair.setCategory(
-        updatedRepair.getCategory()
-);
-                    existingRepair.setCategory(
-                            updatedRepair.getCategory()
-                    );
-
-                    // Save updated repair.
-                    return repairRepository.save(
-                            existingRepair
-                    );
+                    return repairRepository.save(existingRepair);
                 })
-
                 .orElseThrow(() ->
-                        new RuntimeException(
-                                "Repair not found"
-                        )
+                        new RuntimeException("Repair not found")
                 );
     }
 
@@ -115,7 +97,6 @@ existingRepair.setCategory(
     public void deleteRepair(
             @PathVariable Long id
     ) {
-
         repairRepository.deleteById(id);
     }
 }

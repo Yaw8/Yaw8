@@ -61,4 +61,12 @@ public class Repair {
     */
     @JoinColumn(name = "category_id")
     private Category category;
+
+    // The user who owns this repair.
+//
+// Many repairs can belong to one user.
+
+@ManyToOne
+@JoinColumn(name = "user_id")
+private User user;
 }

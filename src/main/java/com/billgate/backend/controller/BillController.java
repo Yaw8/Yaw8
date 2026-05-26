@@ -1,57 +1,68 @@
 package com.billgate.backend.controller;
 
-// Imports the Bill entity class.
-// This represents one bill record from PostgreSQL.
+// Imports Bill entity.
 import com.billgate.backend.entity.Bill;
 
-// Imports the BillRepository.
-// Repository handles database operations automatically.
+// Imports User entity.
+import com.billgate.backend.entity.User;
+
+// Repository used for bill database operations.
 import com.billgate.backend.repository.BillRepository;
 
-// Imports Spring annotations used for REST APIs.
+// Repository used to find users by id.
+import com.billgate.backend.repository.UserRepository;
+
+// Spring REST API annotations.
 import org.springframework.web.bind.annotation.*;
 
-// Imports Java List collection.
+// Java List collection.
 import java.util.List;
 
 @RestController
-// Base API route for all bill endpoints.
-//
-// Example:
-// /api/bills
 @RequestMapping("/api/bills")
 public class BillController {
 
-    // Repository used to communicate with PostgreSQL.
-    //
-    // Think of this as:
-    // Controller -> Repository -> Database
     private final BillRepository billRepository;
+    private final UserRepository userRepository;
 
     // Constructor injection.
-    //
-    // Spring automatically provides BillRepository here.
-    public BillController(BillRepository billRepository) {
+    public BillController(
+            BillRepository billRepository,
+            UserRepository userRepository
+    ) {
         this.billRepository = billRepository;
+        this.userRepository = userRepository;
     }
 
-    // GET /api/bills
+    // GET /api/bills?userId=1
     //
-    // Returns all bills from PostgreSQL.
-    //
-    // Flutter calls this when loading Bills screen.
+    // Returns ONLY bills belonging to one user.
     @GetMapping
-    public List<Bill> getAllBills() {
+    public List<Bill> getBillsByUser(
+            @RequestParam Long userId
+    ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
 
-        return billRepository.findAll();
+        return billRepository.findByUser(user);
     }
 
-    // POST /api/bills
+    // POST /api/bills?userId=1
     //
-    // Receives JSON from Flutter
-    // and saves a new bill into PostgreSQL.
+    // Creates a new bill for a specific user.
     @PostMapping
-    public Bill createBill(@RequestBody Bill bill) {
+    public Bill createBill(
+            @RequestParam Long userId,
+            @RequestBody Bill bill
+    ) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
+
+        bill.setUser(user);
 
         return billRepository.save(bill);
     }
@@ -59,53 +70,22 @@ public class BillController {
     // PUT /api/bills/{id}
     //
     // Updates an existing bill.
-    //
-    // Example:
-    // PUT /api/bills/1
-    //
-    // Flutter calls this when:
-    // - editing bill
-    // - toggling paid/unpaid
     @PutMapping("/{id}")
     public Bill updateBill(
             @PathVariable Long id,
             @RequestBody Bill updatedBill
     ) {
-
-        // Find bill by id.
         return billRepository.findById(id)
-
-                // If bill exists:
                 .map(existingBill -> {
-
-                    // Update fields with new values.
                     existingBill.setName(updatedBill.getName());
+                    existingBill.setAmountDue(updatedBill.getAmountDue());
+                    existingBill.setRecurrence(updatedBill.getRecurrence());
+                    existingBill.setStatus(updatedBill.getStatus());
+                    existingBill.setDueDate(updatedBill.getDueDate());
+                    existingBill.setCategory(updatedBill.getCategory());
 
-                    existingBill.setAmountDue(
-                            updatedBill.getAmountDue()
-                    );
-
-                    existingBill.setRecurrence(
-                            updatedBill.getRecurrence()
-                    );
-
-                    existingBill.setStatus(
-                            updatedBill.getStatus()
-                    );
-
-                    existingBill.setDueDate(
-                            updatedBill.getDueDate()
-                    );
-
-                    existingBill.setCategory(
-                            updatedBill.getCategory()
-                    );
-
-                    // Save updated bill into PostgreSQL.
                     return billRepository.save(existingBill);
                 })
-
-                // If bill id does not exist:
                 .orElseThrow(() ->
                         new RuntimeException("Bill not found")
                 );
@@ -113,15 +93,11 @@ public class BillController {
 
     // DELETE /api/bills/{id}
     //
-    // Deletes a bill from PostgreSQL.
-    //
-    // Example:
-    // DELETE /api/bills/1
-    //
-    // Flutter calls this when user deletes a bill.
+    // Deletes bill from PostgreSQL.
     @DeleteMapping("/{id}")
-    public void deleteBill(@PathVariable Long id) {
-
+    public void deleteBill(
+            @PathVariable Long id
+    ) {
         billRepository.deleteById(id);
     }
 }

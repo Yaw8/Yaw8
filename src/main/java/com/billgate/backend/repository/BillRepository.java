@@ -1,19 +1,21 @@
 package com.billgate.backend.repository;
 
-// Imports the Bill entity we created.
+// Imports Bill entity.
 import com.billgate.backend.entity.Bill;
 
-// JpaRepository gives us built-in database methods.
+// Imports User entity.
+import com.billgate.backend.entity.User;
+
+// Spring Data JPA repository.
 import org.springframework.data.jpa.repository.JpaRepository;
 
-/*
-This interface becomes the database access layer.
+// Java List collection.
+import java.util.List;
 
-JpaRepository<Bill, Long>
+// Repository for bills table.
+public interface BillRepository
+        extends JpaRepository<Bill, Long> {
 
-Bill = entity/table type
-Long = primary key type
-*/
-public interface BillRepository extends JpaRepository<Bill, Long> {
-
+    // Finds all bills belonging to one user.
+    List<Bill> findByUser(User user);
 }

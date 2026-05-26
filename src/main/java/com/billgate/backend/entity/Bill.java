@@ -79,4 +79,13 @@ public class Bill {
     */
     @JoinColumn(name = "category_id")
     private Category category;
+
+    // The user who owns this repair.
+//
+// Many repairs can belong to one user.
+@ManyToOne
+
+// Foreign key column in PostgreSQL.
+@JoinColumn(name = "user_id")
+private User user;
 }
