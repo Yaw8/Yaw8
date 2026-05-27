@@ -1,5 +1,7 @@
 package com.billgate.backend.controller;
 
+import com.billgate.backend.security.JwtUtil;
+
 // Imports Repair entity.
 import com.billgate.backend.entity.Repair;
 
@@ -34,13 +36,26 @@ public class RepairController {
         this.userRepository = userRepository;
     }
 
+    // Extracts logged-in user id from JWT token.
+private Long extractUserIdFromHeader(
+        String authHeader
+) {
+
+    // Removes "Bearer " from token header.
+    String token =
+            authHeader.replace("Bearer ", "");
+
+    // Extracts userId from JWT token.
+    return JwtUtil.extractUserId(token);
+}
     // GET /api/repairs?userId=1
     //
     // Returns ONLY repairs belonging to one user.
     @GetMapping
     public List<Repair> getRepairsByUser(
-            @RequestParam Long userId
+            @RequestHeader("Authorization") String authHeader
     ) {
+        Long userId = extractUserIdFromHeader(authHeader);
         User user = userRepository.findById(userId)
                 .orElseThrow(() ->
                         new RuntimeException("User not found")
@@ -52,20 +67,26 @@ public class RepairController {
     // POST /api/repairs?userId=1
     //
     // Creates a new repair for a specific user.
-    @PostMapping
-    public Repair createRepair(
-            @RequestParam Long userId,
-            @RequestBody Repair repair
-    ) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+   // POST /api/repairs
+//
+// Creates a new repair for the logged-in user.
+// User is identified from JWT token, not from ?userId.
+@PostMapping
+public Repair createRepair(
+        @RequestHeader("Authorization") String authHeader,
+        @RequestBody Repair repair
+) {
+    Long userId = extractUserIdFromHeader(authHeader);
 
-        repair.setUser(user);
+    User user = userRepository.findById(userId)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found")
+            );
 
-        return repairRepository.save(repair);
-    }
+    repair.setUser(user);
+
+    return repairRepository.save(repair);
+}
 
     // PUT /api/repairs/{id}
     //

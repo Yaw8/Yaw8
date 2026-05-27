@@ -1,5 +1,6 @@
 package com.billgate.backend.controller;
 
+import com.billgate.backend.security.JwtUtil;
 // Imports Bill entity.
 import com.billgate.backend.entity.Bill;
 
@@ -34,13 +35,27 @@ public class BillController {
         this.userRepository = userRepository;
     }
 
+    // Extracts logged-in user id from JWT token.
+private Long extractUserIdFromHeader(
+        String authHeader
+) {
+
+    // Removes "Bearer " from token header.
+    String token =
+            authHeader.replace("Bearer ", "");
+
+    // Extracts userId from JWT token.
+    return JwtUtil.extractUserId(token);
+}
     // GET /api/bills?userId=1
     //
     // Returns ONLY bills belonging to one user.
     @GetMapping
     public List<Bill> getBillsByUser(
-            @RequestParam Long userId
+            @RequestHeader("Authorization") String authHeader
     ) {
+        Long userId = extractUserIdFromHeader(authHeader);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() ->
                         new RuntimeException("User not found")
@@ -52,20 +67,26 @@ public class BillController {
     // POST /api/bills?userId=1
     //
     // Creates a new bill for a specific user.
-    @PostMapping
-    public Bill createBill(
-            @RequestParam Long userId,
-            @RequestBody Bill bill
-    ) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+  // POST /api/bills
+//
+// Creates a new bill for the logged-in user.
+// User is identified from JWT token, not from ?userId.
+@PostMapping
+public Bill createBill(
+        @RequestHeader("Authorization") String authHeader,
+        @RequestBody Bill bill
+) {
+    Long userId = extractUserIdFromHeader(authHeader);
 
-        bill.setUser(user);
+    User user = userRepository.findById(userId)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found")
+            );
 
-        return billRepository.save(bill);
-    }
+    bill.setUser(user);
+
+    return billRepository.save(bill);
+}
 
     // PUT /api/bills/{id}
     //

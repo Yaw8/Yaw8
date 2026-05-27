@@ -1,5 +1,7 @@
 package com.billgate.backend.controller;
 
+import com.billgate.backend.security.JwtUtil;
+
 // Imports Category entity.
 import com.billgate.backend.entity.Category;
 
@@ -34,38 +36,65 @@ public class CategoryController {
         this.userRepository = userRepository;
     }
 
+    // Extracts logged-in user id from JWT token.
+private Long extractUserIdFromHeader(
+        String authHeader
+) {
+
+    // Removes "Bearer " from token header.
+    String token =
+            authHeader.replace("Bearer ", "");
+
+    // Extracts userId from JWT token.
+    return JwtUtil.extractUserId(token);
+}
+
     // GET /api/categories?userId=1
     //
     // Returns ONLY categories that belong to one user.
-    @GetMapping
-    public List<Category> getCategoriesByUser(
-            @RequestParam Long userId
-    ) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+   // GET /api/categories
+//
+// Uses JWT token to find logged-in user.
+// Flutter no longer needs to send ?userId=1.
+@GetMapping
+public List<Category> getCategoriesByLoggedInUser(
+        @RequestHeader("Authorization") String authHeader
+) {
+    Long userId = extractUserIdFromHeader(authHeader);
 
-        return categoryRepository.findByUser(user);
-    }
+    User user = userRepository.findById(userId)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found")
+            );
+
+    return categoryRepository.findByUser(user);
+}
 
     // POST /api/categories?userId=1
     //
     // Creates category for a specific user.
-    @PostMapping
-    public Category createCategory(
-            @RequestParam Long userId,
-            @RequestBody Category category
-    ) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+   // POST /api/categories
+//
+// Creates category for the logged-in user.
+// POST /api/categories
+//
+// Creates category for the logged-in user.
+@PostMapping
+public Category createCategory(
+        @RequestHeader("Authorization") String authHeader,
+        @RequestBody Category category
+) {
+    Long userId = extractUserIdFromHeader(authHeader);
 
-        category.setUser(user);
+    User user = userRepository.findById(userId)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found")
+            );
 
-        return categoryRepository.save(category);
-    }
+    category.setUser(user);
+
+    return categoryRepository.save(category);
+}
 
     // PUT /api/categories/{id}
     //
