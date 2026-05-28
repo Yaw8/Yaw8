@@ -1,17 +1,25 @@
 package com.billgate.backend.controller;
 
-import com.billgate.backend.security.JwtUtil;
 // Imports Bill entity.
+// Represents one bill record.
 import com.billgate.backend.entity.Bill;
 
 // Imports User entity.
+// Used for logged-in ownership.
 import com.billgate.backend.entity.User;
 
-// Repository used for bill database operations.
-import com.billgate.backend.repository.BillRepository;
+// Imports BillService.
+// Service handles bill business logic.
+import com.billgate.backend.service.BillService;
 
-// Repository used to find users by id.
+// Repository used only for loading users.
 import com.billgate.backend.repository.UserRepository;
+
+// Spring Security context.
+//
+// Lets us access authenticated user information
+// placed there by JwtAuthenticationFilter.
+import org.springframework.security.core.context.SecurityContextHolder;
 
 // Spring REST API annotations.
 import org.springframework.web.bind.annotation.*;
@@ -20,73 +28,83 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+
+// Base API route for bills.
 @RequestMapping("/api/bills")
 public class BillController {
 
-    private final BillRepository billRepository;
+    // Service layer for bill operations.
+    private final BillService billService;
+
+    // Repository used for loading logged-in user.
     private final UserRepository userRepository;
 
     // Constructor injection.
+    //
+    // Spring automatically provides:
+    // - BillService
+    // - UserRepository
     public BillController(
-            BillRepository billRepository,
+            BillService billService,
             UserRepository userRepository
     ) {
-        this.billRepository = billRepository;
+        this.billService = billService;
         this.userRepository = userRepository;
     }
 
-    // Extracts logged-in user id from JWT token.
-private Long extractUserIdFromHeader(
-        String authHeader
-) {
-
-    // Removes "Bearer " from token header.
-    String token =
-            authHeader.replace("Bearer ", "");
-
-    // Extracts userId from JWT token.
-    return JwtUtil.extractUserId(token);
-}
-    // GET /api/bills?userId=1
+    // Reads logged-in user id from Spring Security.
     //
-    // Returns ONLY bills belonging to one user.
-    @GetMapping
-    public List<Bill> getBillsByUser(
-            @RequestHeader("Authorization") String authHeader
-    ) {
-        Long userId = extractUserIdFromHeader(authHeader);
+    // Flow:
+    // JWT filter
+    // -> SecurityContextHolder
+    // -> Controller
+    private Long getLoggedInUserId() {
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
-
-        return billRepository.findByUser(user);
+        return (Long) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
     }
 
-    // POST /api/bills?userId=1
+    // Loads full User entity for authenticated user.
+    private User getLoggedInUser() {
+
+        Long userId = getLoggedInUserId();
+
+        return userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "User not found"
+                        )
+                );
+    }
+
+    // GET /api/bills
     //
-    // Creates a new bill for a specific user.
-  // POST /api/bills
-//
-// Creates a new bill for the logged-in user.
-// User is identified from JWT token, not from ?userId.
-@PostMapping
-public Bill createBill(
-        @RequestHeader("Authorization") String authHeader,
-        @RequestBody Bill bill
-) {
-    Long userId = extractUserIdFromHeader(authHeader);
+    // Returns bills belonging ONLY to logged-in user.
+    @GetMapping
+    public List<Bill> getAllBills() {
 
-    User user = userRepository.findById(userId)
-            .orElseThrow(() ->
-                    new RuntimeException("User not found")
-            );
+        User user = getLoggedInUser();
 
-    bill.setUser(user);
+        return billService.getBillsForUser(user);
+    }
 
-    return billRepository.save(bill);
-}
+    // POST /api/bills
+    //
+    // Creates a bill for logged-in user.
+    @PostMapping
+    public Bill createBill(
+            @RequestBody Bill bill
+    ) {
+
+        User user = getLoggedInUser();
+
+        return billService.createBillForUser(
+                user,
+                bill
+        );
+    }
 
     // PUT /api/bills/{id}
     //
@@ -96,20 +114,11 @@ public Bill createBill(
             @PathVariable Long id,
             @RequestBody Bill updatedBill
     ) {
-        return billRepository.findById(id)
-                .map(existingBill -> {
-                    existingBill.setName(updatedBill.getName());
-                    existingBill.setAmountDue(updatedBill.getAmountDue());
-                    existingBill.setRecurrence(updatedBill.getRecurrence());
-                    existingBill.setStatus(updatedBill.getStatus());
-                    existingBill.setDueDate(updatedBill.getDueDate());
-                    existingBill.setCategory(updatedBill.getCategory());
 
-                    return billRepository.save(existingBill);
-                })
-                .orElseThrow(() ->
-                        new RuntimeException("Bill not found")
-                );
+        return billService.updateBill(
+                id,
+                updatedBill
+        );
     }
 
     // DELETE /api/bills/{id}
@@ -119,6 +128,7 @@ public Bill createBill(
     public void deleteBill(
             @PathVariable Long id
     ) {
-        billRepository.deleteById(id);
+
+        billService.deleteBill(id);
     }
 }

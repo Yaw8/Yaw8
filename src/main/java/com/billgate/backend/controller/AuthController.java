@@ -1,5 +1,7 @@
 package com.billgate.backend.controller;
 
+import jakarta.validation.Valid;
+
 import com.billgate.backend.security.JwtUtil;
 // Imports User entity.
 import com.billgate.backend.entity.User;
@@ -37,7 +39,7 @@ private final BCryptPasswordEncoder passwordEncoder =
     // Creates a new user account.
     @PostMapping("/register")
     public User registerUser(
-            @RequestBody User user
+            @Valid @RequestBody User user
     ) {
 
         // Check whether email already exists.

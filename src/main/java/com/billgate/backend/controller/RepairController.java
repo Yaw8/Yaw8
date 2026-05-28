@@ -1,18 +1,25 @@
 package com.billgate.backend.controller;
 
-import com.billgate.backend.security.JwtUtil;
-
 // Imports Repair entity.
+// Represents one repair record.
 import com.billgate.backend.entity.Repair;
 
 // Imports User entity.
+// Used for logged-in ownership.
 import com.billgate.backend.entity.User;
 
-// Repository used for repair database operations.
-import com.billgate.backend.repository.RepairRepository;
+// Imports RepairService.
+// Service handles repair business logic.
+import com.billgate.backend.service.RepairService;
 
-// Repository used to find users by id.
+// Repository used only for loading users.
 import com.billgate.backend.repository.UserRepository;
+
+// Spring Security context.
+//
+// Lets us access authenticated user information
+// placed there by JwtAuthenticationFilter.
+import org.springframework.security.core.context.SecurityContextHolder;
 
 // Spring REST API annotations.
 import org.springframework.web.bind.annotation.*;
@@ -21,72 +28,83 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+
+// Base API route for repairs.
 @RequestMapping("/api/repairs")
 public class RepairController {
 
-    private final RepairRepository repairRepository;
+    // Service layer for repair operations.
+    private final RepairService repairService;
+
+    // Repository used for loading logged-in user.
     private final UserRepository userRepository;
 
     // Constructor injection.
+    //
+    // Spring automatically provides:
+    // - RepairService
+    // - UserRepository
     public RepairController(
-            RepairRepository repairRepository,
+            RepairService repairService,
             UserRepository userRepository
     ) {
-        this.repairRepository = repairRepository;
+        this.repairService = repairService;
         this.userRepository = userRepository;
     }
 
-    // Extracts logged-in user id from JWT token.
-private Long extractUserIdFromHeader(
-        String authHeader
-) {
-
-    // Removes "Bearer " from token header.
-    String token =
-            authHeader.replace("Bearer ", "");
-
-    // Extracts userId from JWT token.
-    return JwtUtil.extractUserId(token);
-}
-    // GET /api/repairs?userId=1
+    // Reads logged-in user id from Spring Security.
     //
-    // Returns ONLY repairs belonging to one user.
-    @GetMapping
-    public List<Repair> getRepairsByUser(
-            @RequestHeader("Authorization") String authHeader
-    ) {
-        Long userId = extractUserIdFromHeader(authHeader);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
+    // Flow:
+    // JWT filter
+    // -> SecurityContextHolder
+    // -> Controller
+    private Long getLoggedInUserId() {
 
-        return repairRepository.findByUser(user);
+        return (Long) SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getPrincipal();
     }
 
-    // POST /api/repairs?userId=1
+    // Loads full User entity for authenticated user.
+    private User getLoggedInUser() {
+
+        Long userId = getLoggedInUserId();
+
+        return userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "User not found"
+                        )
+                );
+    }
+
+    // GET /api/repairs
     //
-    // Creates a new repair for a specific user.
-   // POST /api/repairs
-//
-// Creates a new repair for the logged-in user.
-// User is identified from JWT token, not from ?userId.
-@PostMapping
-public Repair createRepair(
-        @RequestHeader("Authorization") String authHeader,
-        @RequestBody Repair repair
-) {
-    Long userId = extractUserIdFromHeader(authHeader);
+    // Returns repairs belonging ONLY to logged-in user.
+    @GetMapping
+    public List<Repair> getAllRepairs() {
 
-    User user = userRepository.findById(userId)
-            .orElseThrow(() ->
-                    new RuntimeException("User not found")
-            );
+        User user = getLoggedInUser();
 
-    repair.setUser(user);
+        return repairService.getRepairsForUser(user);
+    }
 
-    return repairRepository.save(repair);
-}
+    // POST /api/repairs
+    //
+    // Creates a repair for logged-in user.
+    @PostMapping
+    public Repair createRepair(
+            @RequestBody Repair repair
+    ) {
+
+        User user = getLoggedInUser();
+
+        return repairService.createRepairForUser(
+                user,
+                repair
+        );
+    }
 
     // PUT /api/repairs/{id}
     //
@@ -96,19 +114,11 @@ public Repair createRepair(
             @PathVariable Long id,
             @RequestBody Repair updatedRepair
     ) {
-        return repairRepository.findById(id)
-                .map(existingRepair -> {
-                    existingRepair.setTitle(updatedRepair.getTitle());
-                    existingRepair.setCost(updatedRepair.getCost());
-                    existingRepair.setStatus(updatedRepair.getStatus());
-                    existingRepair.setRepairDate(updatedRepair.getRepairDate());
-                    existingRepair.setCategory(updatedRepair.getCategory());
 
-                    return repairRepository.save(existingRepair);
-                })
-                .orElseThrow(() ->
-                        new RuntimeException("Repair not found")
-                );
+        return repairService.updateRepair(
+                id,
+                updatedRepair
+        );
     }
 
     // DELETE /api/repairs/{id}
@@ -118,6 +128,7 @@ public Repair createRepair(
     public void deleteRepair(
             @PathVariable Long id
     ) {
-        repairRepository.deleteById(id);
+
+        repairService.deleteRepair(id);
     }
 }
