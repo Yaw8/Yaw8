@@ -32,6 +32,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 // Spring REST API annotations.
 import org.springframework.web.bind.annotation.*;
 
+import com.billgate.backend.dto.ProfileResponse;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 @RestController
 
 // Base API route for authentication.
@@ -146,4 +149,26 @@ public class AuthController {
         // Return token inside DTO response.
         return new AuthResponse(token);
     }
+    // GET /api/auth/profile
+//
+// Returns the logged-in user's profile.
+@GetMapping("/profile")
+public ProfileResponse getProfile() {
+
+    Long userId = (Long) SecurityContextHolder
+            .getContext()
+            .getAuthentication()
+            .getPrincipal();
+
+    User user = userRepository.findById(userId)
+            .orElseThrow(() ->
+                    new RuntimeException("User not found")
+            );
+
+    return new ProfileResponse(
+            user.getId(),
+            user.getName(),
+            user.getEmail()
+    );
+}
 }
